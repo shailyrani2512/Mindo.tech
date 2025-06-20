@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>mindo.tech</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    body { margin:0; font-family: 'Segoe UI', sans-serif; background: #1f1f2e; color: #fff; }
+    header { background: #292940; padding:1rem; text-align:center; font-size:1.8rem; font-weight:bold; color:#00e6e6;}
+    .container { padding: 2rem; }
+
+    .flex-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .flex-row .box {
+      flex: 1;
+    }
+
+    .box { background: #2f2f4f; border-radius: 8px; padding: 1rem; margin-bottom:1rem; }
+    textarea, input, select {
+      width: 100%; padding: 0.5rem; margin-top: 0.5rem;
+      background: #1c1c2d; color: #fff; border: 2px solid transparent; border-radius: 6px;
+      font-family: monospace;
+    }
+    .buttons { margin-top: 1rem; }
+    button {
+      padding: 0.6rem 1.2rem; border:none; border-radius: 6px; background-color:#00cccc;
+      color:#000; font-weight:bold; cursor:pointer;
+    }
+    button:hover { background-color:#00e6e6; }
+    .output-box {
+      background: #1c1c2d; padding: 1rem; border-radius: 8px;
+      font-family: monospace; white-space: pre-wrap; position: relative;
+      min-height: 150px;
+    }
+    .copy-btn {
+      margin-top: 0.5rem;
+      background: #00cccc; color: #000;
+      padding: 0.4rem 0.6rem; border:none; border-radius: 6px;
+      font-weight: bold; cursor:pointer;
+      float: right;
+    }
+    #jsonTemplateDiv, #customizeDiv {
+      margin-top: 0.5rem; display: none;
+    }
+
+    .spinner {
+      border: 4px solid #1c1c2d;
+      border-top: 4px solid #00e6e6;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .valid-json {
+      border: 2px solid #00cc66 !important;
+    }
+
+    .invalid-json {
+      border: 2px solid #cc0033 !important;
+    }
+  </style>
+</head>
+<body>
+<header>mindo.tech</header>
+<div class="container">
+
+  <div class="flex-row">
+    <div class="box">
+      <h3>Enter Prompt..</h3>
+      <textarea id="prompt" rows="10" placeholder="Enter prompt using {placeholder} style. Example: Hello {name}, you like {hobbies}"></textarea>
+    </div>
+
+    <div class="box">
+      <h3>Dynamic Values (JSON format)</h3>
+      <textarea id="dynamicValues" rows="10" placeholder='e.g. {"name": "Alice", "age": 30, "hobbies": ["reading","swimming"]}'>{  
+  "name": "Alice",  
+  "age": 30,  
+  "hobbies": ["reading", "swimming"]  
+}</textarea>
+    </div>
+
+    <div class="box">
+      <h3>Choose output format:</h3>
+      <select id="format" onchange="toggleFormatOptions()">
+        <option value="json" selected>JSON</option>
+        <option value="null">Null (no preferred format)</option>
+        <option value="paragraph">Paragraph</option>
+        <option value="one-word">One Word</option>
+        <option value="customize">Customize</option>
+      </select>
+
+      <div id="jsonTemplateDiv">
+        <label for="jsonTemplate">Preferred JSON Template:</label>
+        <textarea id="jsonTemplate" placeholder='{
+  "product_name": "...",
+  "sentiment": "..."
+}' rows="8"></textarea>
+      </div>
+
+      <div id="customizeDiv">
+        <label for="customInstructions">Custom Instructions (e.g., bullet points):</label>
+        <textarea id="customInstructions" placeholder="Write your custom output instructions here..." rows="8"></textarea>
+      </div>
+
+      <h3>Select LLM Model:</h3>
+      <select id="llm_model">
+        <option value="gemini/gemini-2.0-flash" selected>Gemini 2.0 Flash (Google)</option>
+        <option value="groq/meta-llama/llama-3-70b-instruct">LLaMA3 70B (Groq)</option>
+        <option value="groq/gemma-7b-it">Gemma 7B IT (Groq)</option>
+        <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo (OpenAI)</option>
+        <option value="openai/gpt-4o">GPT-4o (OpenAI)</option>
+        <option value="anthropic/claude-3-opus-20240229">Claude 3 Opus (Anthropic)</option>
+        <option value="anthropic/claude-3-haiku-20240307">Claude 3 Haiku (Anthropic)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button onclick="generateContent()"><i class="fas fa-robot"></i> Generate</button>
+    <button onclick="clearAll()"><i class="fas fa-sync-alt"></i> Clear</button>
+  </div>
+
+  <div class="output-box">
+    <div id="responseOutput">Your response will appear here...</div>
+  </div>
+  <button class="copy-btn" onclick="copyOutput()">Copy</button>
+
+</div>
+
+<script>
+function toggleFormatOptions() {
+  const format = document.getElementById('format').value;
+  document.getElementById('jsonTemplateDiv').style.display = format === 'json' ? 'block' : 'none';
+  document.getElementById('customizeDiv').style.display = format === 'customize' ? 'block' : 'none';
+}
+
+async function generateContent() {
+  const prompt = document.getElementById('prompt').value;
+  const format = document.getElementById('format').value;
+  const template = document.getElementById('jsonTemplate').value;
+  const customInstructions = document.getElementById('customInstructions').value;
+  const llm_model = document.getElementById('llm_model').value;
+  let dynamicValuesRaw = document.getElementById('dynamicValues').value;
+  let dynamicValues = {};
+  const responseOutput = document.getElementById('responseOutput');
+
+  responseOutput.textContent = "Loading...";
+  responseOutput.insertAdjacentHTML('beforeend', `<div class="spinner"></div>`);
+
+  if(dynamicValuesRaw.trim()) {
+    try {
+      dynamicValues = JSON.parse(dynamicValuesRaw);
+    } catch (e) {
+      responseOutput.textContent = "Error: Invalid JSON in Dynamic Values.";
+      return;
+    }
+  }
+
+  const payload = {
+    prompt: prompt,
+    format: format === 'null' ? null : format,
+    template: template,
+    custom_instructions: customInstructions,
+    dynamic_values: dynamicValues,
+    llm_model: llm_model
+  };
+
+  try {
+    const res = await fetch("/generate", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if(data.response) {
+      responseOutput.textContent = data.response;
+    } else if(data.error) {
+      responseOutput.textContent = "Error: " + data.error;
+    } else {
+      responseOutput.textContent = JSON.stringify(data, null, 2);
+    }
+  } catch(err) {
+    responseOutput.textContent = "Error: " + err.message;
+  }
+}
+
+function clearAll() {
+  document.getElementById('prompt').value = '';
+  document.getElementById('dynamicValues').value = '{}';
+  document.getElementById('format').value = 'null';
+  document.getElementById('jsonTemplate').value = '';
+  document.getElementById('customInstructions').value = '';
+  document.getElementById('llm_model').selectedIndex = 0;
+  document.getElementById('jsonTemplateDiv').style.display = 'none';
+  document.getElementById('customizeDiv').style.display = 'none';
+  document.getElementById('responseOutput').textContent = 'Your response will appear here...';
+}
+
+function copyOutput() {
+  const output = document.getElementById('responseOutput').textContent;
+  navigator.clipboard.writeText(output).then(() => {
+    alert('Copied to clipboard!');
+  });
+}
+
+document.getElementById('dynamicValues').addEventListener('input', function () {
+  const el = this;
+  try {
+    JSON.parse(el.value);
+    el.classList.remove('invalid-json');
+    el.classList.add('valid-json');
+  } catch (e) {
+    el.classList.remove('valid-json');
+    el.classList.add('invalid-json');
+  }
+});
+
+document.getElementById('jsonTemplate').addEventListener('input', function () {
+  const formatDropdown = document.getElementById('format');
+  if (this.value.trim()) {
+    formatDropdown.value = 'json';
+    toggleFormatOptions();
+  }
+});
+
+toggleFormatOptions();
+</script>
+</body>
+</html>
