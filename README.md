@@ -109,6 +109,7 @@ Copy
 Edit
 pip install -r requirements.txt
 📸 Screenshots
+![image](https://github.com/user-attachments/assets/e9887428-fb77-4a91-b323-020bc43ee3bd)
 
 Main UI of the LLM prompt generator
 
